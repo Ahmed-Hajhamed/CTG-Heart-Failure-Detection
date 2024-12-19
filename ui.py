@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QGridLayout, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QLineEdit, QRadioButton,
-    QPushButton, QComboBox, QSlider, QFileDialog, QSpacerItem, QSizePolicy, QGraphicsScene, QCheckBox, QTabWidget
+    QApplication, QMainWindow, QGridLayout, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QLineEdit, QTableWidget,
+    QPushButton, QComboBox, QSlider, QFileDialog, QSpacerItem, QSizePolicy, QTableWidgetItem, QCheckBox, QTabWidget
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -20,30 +20,66 @@ class Figure_CTG(FigureCanvas):
 class ui(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Beamforming")
+        self.setWindowTitle("CTG Heart Failure Monitoring")
         self.setGeometry(100, 100, 1200, 800)
         
-        self.fhr_signal, self.uc_signal = extract_data()
-        self.start_index = 0
-        self.end_index = 1000
-        self.max_index = len(self.fhr_signal)-1
-        self.edge = self.max_index%1000
-
         #########################
         self.v_main_layout = QVBoxLayout()
+        
         self.figure_plot = Figure_CTG()
-
         self.v_main_layout.addWidget(self.figure_plot)
         
+        self.info_table = QTableWidget()
+        self.info_table.setFixedHeight(60)
+        column_headers = [
+            "FETAL STATE",
+            "FHR baseline bpm",
+            "AC",
+            "FM",
+            "UC",
+            "DL",
+            "DS",
+            "PD",
+            "ASTV",
+            "MSTV",
+            "ALTV",
+            "MLTV",
+        ]
+        #     # Store results in features dictionary
+#     features.append(baseline)
+#     features.append(accelerations)
+#     features.append(movements)
+#     features.append(contractions)
+#     features.append(light_decel)
+#     features.append(severe_decel)
+#     features.append(prolonged_decel)
+#     features.append(abnormal_stv)
+#     features.append(mstv)
+#     features.append(abnormal_ltv)
+#     features.append(mltv)
+        self.info_table.setRowCount(1)
+        self.info_table.setColumnCount(len(column_headers))
+        self.info_table.setHorizontalHeaderLabels(column_headers)
+        # self.info_table.resizeColumnsToContents()
+
+        self.v_main_layout.addWidget(self.info_table)
+
+
 
         h_layout_of_button = QHBoxLayout()
+        self.combo_box_of_files = QComboBox()
+        self.combo_box_of_files.addItems([str(i) for i in range(1,507)])
+        self.combo_box_of_files.setMaxVisibleItems(10)
+        self.combo_box_of_files.setStyleSheet("QComboBox { combobox-popup: 0; }");
+        # dropdown_view = self.combo_box_of_files.view()
+        # dropdown_view.setMinimumHeight(50)  # Minimum height for dropdown menu
+        # dropdown_view.setFixedHeight(150)
+        h_layout_of_button.addWidget(self.combo_box_of_files)
+
         self.next_button = QPushButton("NEXT")
-        self.next_button.clicked.connect(self.next_update)
+        h_layout_of_button.addWidget(self.next_button)
 
         self.previous_button = QPushButton("PREVIOUS") 
-        self.previous_button.clicked.connect(self.previous_update)
-
-        h_layout_of_button.addWidget(self.next_button)
         h_layout_of_button.addWidget(self.previous_button)
 
         self.v_main_layout.addLayout(h_layout_of_button)
@@ -52,60 +88,6 @@ class ui(QMainWindow):
         container = QWidget()
         container.setLayout(self.v_main_layout)
         self.setCentralWidget(container)
-        print(self.fhr_signal.shape)
-        self.update_plot()
-
-    def update_plot(self):
-        print("test 1 ")
-        if self.start_index >= 0 and self.end_index <= self.max_index:
-            print("test 2 ")
-            self.figure_plot.axes_FHR.clear()
-            self.figure_plot.axes_FHR.plot(self.fhr_signal[self.start_index:self.end_index], label='FHR', color='blue')
-            self.figure_plot.axes_FHR.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
-            self.figure_plot.axes_FHR.set_xticks([0,200,400,600,800,1000])
-            self.figure_plot.axes_FHR.set_xticklabels([str(self.start_index), str(self.end_index-800),str(self.end_index-600),
-                                                      str(self.end_index-400), str(self.end_index-200), str(self.end_index)])
-            self.figure_plot.axes_FHR.set_title("Fetal Heart Rate (FHR)")
-            self.figure_plot.axes_FHR.set_ylabel("BPM")
-
-            self.figure_plot.axes_UC.clear()
-            self.figure_plot.axes_UC.plot(self.uc_signal[self.start_index:self.end_index], label='Uterine Contractions (UC)', color='green')
-            self.figure_plot.axes_UC.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
-            self.figure_plot.axes_UC.set_xticks([0,200,400,600,800,1000])
-            self.figure_plot.axes_UC.set_xticklabels([str(self.start_index), str(self.end_index-800),str(self.end_index-600),
-                                                      str(self.end_index-400), str(self.end_index-200), str(self.end_index)])
-            self.figure_plot.axes_UC.set_title("Uterine Contractions (UC)")
-            self.figure_plot.axes_UC.set_ylabel("Intensity")
-            self.figure_plot.axes_UC.set_xlabel("Time (samples)")
-
-            self.figure_plot.draw()
-
-    def next_update(self):
-        if self.end_index+1000 > self.max_index and self.end_index+self.edge >self.max_index:
-            return
-        if self.end_index+1000 > self.max_index :
-            self.end_index += self.edge
-            self.start_index += self.edge
-        else:
-            self.end_index += 1000
-            self.start_index += 1000
-
-
-        self.update_plot()
-
-    def previous_update(self):
-        if self.end_index == self.max_index:
-            self.end_index -= self.edge
-            self.start_index -= self.edge
-        
-        elif self.start_index == 0:
-            return
-        
-        else:
-            self.start_index -=1000
-            self.end_index -= 1000
-        
-        self.update_plot()
 
 
 
