@@ -1,27 +1,36 @@
+from re import X
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QTableWidgetItem
+    QApplication, QMainWindow, QGridLayout, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QLineEdit, QTableWidgetItem,
+    QPushButton, QComboBox, QSlider, QFileDialog, QSpacerItem, QSizePolicy, QGraphicsScene, QCheckBox, QTabWidget
 )
-from torch import mode
+from sklearn.preprocessing import MinMaxScaler
+from PreProcessing import handle_missing_values, low_pass_filter, normalize_signal, clip_outliers
 from ui import ui
 import wfdb
 import numpy as np
 from scipy.signal import find_peaks
+# from imblearn.over_sampling import SMOTE
 from qt_material import apply_stylesheet
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 
+
+scaler = MinMaxScaler()
+
 class main(ui):
     def __init__(self):
         super().__init__()
+        
         self.model, self.columns_name = model_creator()
-        self.fhr_signal, self.uc_signal = extract_data()
-        self.features = calculate_features(self.fhr_signal, self.uc_signal)
+        self.fhr_signal = None
+        self.uc_signal = None
+        self.features = None
         self.fatel_stat = ["Normal", "Suspect", "Pathologic"]
         self.start_index = 0
         self.end_index = 1000
-        self.max_index = len(self.fhr_signal)-1
-        self.edge = self.max_index%1000
+        self.max_index = None
+        self.edge = None
         
         self.metrics = []
 
@@ -37,22 +46,23 @@ class main(ui):
         self.metrics.clear()
         name = str(1000+int(self.combo_box_of_files.currentText()))
         self.fhr_signal, self.uc_signal = extract_data(name)
+        self.fhr_signal, self.uc_signal = preprocess_signals(self.fhr_signal, self.uc_signal, 4)
         self.features = calculate_features(self.fhr_signal, self.uc_signal)
-        self.start_index = 0
-        self.end_index = 1000
         self.max_index = len(self.fhr_signal)-1
         self.edge = self.max_index%1000
         self.update_table()
         self.update_plot()
 
     def update_table(self):
+        global scaler
         feature = np.array(self.features).reshape(1, -1)
         x_test = pd.DataFrame(feature, columns=self.columns_name)
+        x_test_scaled = scaler.transform(x_test)
         state = self.model.predict(x_test)[0]
         fetal_state = self.fatel_stat[state]
         self.info_table.setItem(0,0, QTableWidgetItem(fetal_state))
         for i in range(len(self.features)):
-            self.info_table.setItem(0,i+1, QTableWidgetItem(str(self.features[i])))
+            self.info_table.setItem(0,i+1, QTableWidgetItem(f"{self.features[i]:.2f}"))
 
     
     def update_plot(self):
@@ -125,101 +135,8 @@ def extract_data(name="1001"):
 
 
 
-# def calculate_features(FHR, UC, sampling_rate=4):
-#     """
-#     Calculate the first 10 parameters based on FHR and UC time-series data.
-#     Args:
-#     - FHR (array-like): Fetal Heart Rate time-series data.
-#     - UC (array-like): Uterine Contractions time-series data.
-#     - sampling_rate (float): Sampling rate of the data (in Hz, i.e., data points per second).
-#     """
-#     # Helper function to calculate short-term and long-term variability
-#     def variability(signal, window_size):
-#         return np.std([np.std(signal[i:i+window_size]) for i in range(0, len(signal)-window_size, window_size)])
-
-#     features = []
-
-#     # 1. FHR Baseline (LB) - Mean FHR excluding accelerations and decelerations
-#     baseline_window = 10 * sampling_rate  # 10 minutes window in seconds
-#     baseline = np.mean(FHR[-baseline_window:])  # Mean of last 10 minutes
-
-#     # 2. Number of Accelerations per second (AC)
-#     # An acceleration is a rise of at least 15 bpm for at least 15 seconds
-#     peaks, _ = find_peaks(FHR, height=15)  # Peaks representing accelerations
-#     accelerations = len(peaks) / len(FHR)
-
-#     # 3. Number of Fetal Movements per second (FM)
-#     # Assuming fetal movement corresponds to significant changes in FHR
-#     movements = len(peaks) / len(FHR)  # Using peaks as a proxy for fetal movements
-
-#     # 4. Number of Uterine Contractions per second (UC)
-#     # Assuming UC is represented by spikes in the UC signal
-#     contraction_peaks, _ = find_peaks(UC, height=0.5)  # Arbitrary threshold for contraction
-#     contractions = len(contraction_peaks) / len(UC)
-
-#     # 5. Number of Light Decelerations per second (DL)
-#     # Light deceleration is a decrease in FHR by less than 15 bpm
-#     light_decel = len([1 for i in range(1, len(FHR)) if FHR[i] < FHR[i-1] - 15]) / len(FHR)
-
-#     # 6. Number of Severe Decelerations per second (DS)
-#     severe_decel = len([1 for i in range(1, len(FHR)) if FHR[i] < FHR[i-1] - 30]) / len(FHR)
-
-#     # 7. Number of Prolonged Decelerations per second (DP)
-#     # Prolonged deceleration lasts more than 2 minutes
-#     prolonged_decel = len([1 for i in range(1, len(FHR)) if FHR[i] < FHR[i-1] - 30 and (i - np.where(FHR[:i] < FHR[i-1] - 30)[0]) > (2 * sampling_rate)]) / len(FHR)
-
-#     # 8. Percentage of Time with Abnormal Short-Term Variability (ASTV)
-#     # Abnormal short-term variability is when the standard deviation is < 5 bpm in 1-minute windows
-#     short_term_variability = np.std(FHR)
-#     abnormal_stv = np.mean([np.std(FHR[i:i+sampling_rate]) < 5 for i in range(0, len(FHR)-sampling_rate, sampling_rate)])
-
-#     # 9. Mean Short-Term Variability (MSTV)
-#     # Short-term variability is calculated over 1-minute windows
-#     short_term_window = sampling_rate * 60  # 1-minute window in samples
-#     mstv = variability(FHR, short_term_window)
-
-#     # 10. Percentage of Time with Abnormal Long-Term Variability (ALTV)
-#     # Abnormal long-term variability is when variability is lower than 5 bpm over 10-minute windows
-#     long_term_window = sampling_rate * 600  # 10-minute window in samples
-#     abnormal_ltv = np.mean([np.std(FHR[i:i+long_term_window]) < 5 for i in range(0, len(FHR)-long_term_window, long_term_window)])
-
-#     # Calculate standard deviation over non-overlapping long-term windows
-#     window_size = long_term_window * sampling_rate  # Convert window size to samples
-#     variability_values = []
-
-#     # Iterate over the FHR data with non-overlapping windows
-#     for i in range(0, len(FHR) - window_size + 1, window_size):
-#         window = FHR[i:i+window_size]
-#         variability_values.append(np.std(window))  # Standard deviation of FHR in each window
-
-#     # Calculate the mean of the variability values
-#     mltv = np.mean(variability_values)
-
-#     # Store results in features dictionary
-#     features.append(baseline)
-#     features.append(accelerations)
-#     features.append(movements)
-#     features.append(contractions)
-#     features.append(light_decel)
-#     features.append(severe_decel)
-#     features.append(prolonged_decel)
-#     features.append(abnormal_stv)
-#     features.append(mstv)
-#     features.append(abnormal_ltv)
-#     features.append(mltv)
-
-#     return features
-
 def calculate_features(FHR, UC, sampling_rate=4, long_term_window=1000):
-    """
-    Calculate the first 11 features based on FHR and UC time-series data.
-    Args:
-    - FHR (array-like): Fetal Heart Rate time-series data.
-    - UC (array-like): Uterine Contractions time-series data.
-    - sampling_rate (float): Sampling rate of the data (in Hz, i.e., data points per second).
-    - long_term_window (int): The length of the long-term window (in seconds, default is 600 seconds = 10 minutes).
-    - show_histogram (bool): Whether to display a histogram of FHR values.
-    """
+
     def variability(signal, window_size):
         """Calculate variability over sliding windows."""
         return np.std([np.std(signal[i:i+window_size]) for i in range(0, len(signal)-window_size, window_size)])
@@ -252,12 +169,6 @@ def calculate_features(FHR, UC, sampling_rate=4, long_term_window=1000):
     severe_decel = [1 for i in range(1, len(FHR)) if FHR[i] < FHR[i-1] - 30]
     features.append(len(severe_decel) / len(FHR))
 
-    # 7. Number of Prolonged Decelerations per second (DP)
-    # prolonged_decel = [
-    #     1 for i in range(1, len(FHR))
-    #     if FHR[i] < FHR[i-1] - 30 and
-    #     (i - np.where(FHR[:i] < FHR[i-1] - 30)[0][0]) > (2 * sampling_rate * 60)
-    # ]
     prolonged_decel = []
     for i in range(1, len(FHR)):
         # Find the deceleration event
@@ -295,15 +206,43 @@ def calculate_features(FHR, UC, sampling_rate=4, long_term_window=1000):
 
     return features
 
-
 def model_creator():
+    global scaler
     data = pd.read_csv("fetal_health.csv")
-    X_data = data.drop("fetal_health", axis=1)
+    x_data = data.drop("fetal_health", axis=1)
     y_data = data["fetal_health"]
+    x_train = scaler.fit_transform(x_data)
     model = RandomForestClassifier(random_state=42)
-    model.fit(X_data, y_data)
-    return model, X_data.columns
+    model.fit(x_train, y_data)
+    return model, x_data.columns
 
+# def model_creator():
+#     global scaler
+    
+#     df = pd.read_csv("fetal_health.csv")
+#     x = df.iloc[:, :-1]
+#     y = df['fetal_health']
+    
+#     smote = SMOTE(sampling_strategy='auto') 
+#     X_resampled, y_resampled = smote.fit_resample(x, y)
+
+#     X_train = scaler.fit_transform(X_resampled)
+
+#     model = RandomForestClassifier(random_state=42)
+#     model.fit(X_train, y_resampled)
+#     return model, x.columns
+
+def preprocess_signals(fhr_signal, uc_signal, sampling_rate):
+    fhr_signal = handle_missing_values(fhr_signal)
+    uc_signal = handle_missing_values(uc_signal)
+
+    fhr_signal = low_pass_filter(fhr_signal, cutoff=0.5, fs=sampling_rate)
+    uc_signal = low_pass_filter(uc_signal, cutoff=0.5, fs=sampling_rate)
+
+    fhr_signal = clip_outliers(fhr_signal, lower_limit=60, upper_limit=200)
+    uc_signal = clip_outliers(uc_signal, lower_limit=0, upper_limit=100)
+
+    return fhr_signal, uc_signal
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

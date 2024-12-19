@@ -1,64 +1,47 @@
-from scipy.signal import butter, filtfilt, find_peaks, resample
 from sklearn.preprocessing import MinMaxScaler
-import pandas as pd
+from scipy.signal import butter, filtfilt
 import numpy as np
-import ExtractData
-import matplotlib.pyplot as plt
 
-# Load signals (FHR and UC)
-fhr_signal, uc_signal = ExtractData.extract_data()
+def handle_missing_values(signal):
+    # Replace NaNs with the mean of the signal
+    return np.where(np.isnan(signal), np.nanmean(signal), signal)
 
-# Step 1: Interpolate missing values
-fhr_signal = pd.Series(fhr_signal).interpolate(method='linear').to_numpy()
-uc_signal = pd.Series(uc_signal).interpolate(method='linear').to_numpy()
 
-# Step 2: Normalize signals
-scaler = MinMaxScaler() #use StandardScaler() for z score (zero mean and unit variance)
-fhr_signal = scaler.fit_transform(fhr_signal.reshape(-1, 1)).flatten()
-uc_signal = scaler.fit_transform(uc_signal.reshape(-1, 1)).flatten()
 
-# Step 3: Filter signals (low-pass filter)
+
 def low_pass_filter(signal, cutoff, fs, order=4):
     nyquist = 0.5 * fs
     normal_cutoff = cutoff / nyquist
     b, a = butter(order, normal_cutoff, btype='low', analog=False)
     return filtfilt(b, a, signal)
 
-fhr_signal = low_pass_filter(fhr_signal, cutoff=0.3, fs=4)  # Example frequency: 4 Hz
-uc_signal = low_pass_filter(uc_signal, cutoff=0.3, fs=4)
 
-# Step 4: Resample and synchronize
-new_length = len(fhr_signal)
-uc_signal = resample(uc_signal, new_length)
 
-# Step 5: Segment signals
-def segment_signal(signal, window_size, overlap):
-    step = int(window_size * (1 - overlap))
-    return [signal[i:i+window_size] for i in range(0, len(signal) - window_size + 1, step)]
+def clip_outliers(signal, lower_limit, upper_limit):
+    return np.clip(signal, lower_limit, upper_limit)
 
-window_size = 60
-overlap = 0.5
-fhr_windows = segment_signal(fhr_signal, window_size, overlap)
-uc_windows = segment_signal(uc_signal, window_size, overlap)
+# Define physiological ranges (adjust based on domain knowledge)
+# fhr_signal_filtered = clip_outliers(fhr_signal_filtered, lower_limit=60, upper_limit=200)  # Example: FHR between 60-200 bpm
+# uc_signal_filtered = clip_outliers(uc_signal_filtered, lower_limit=0, upper_limit=100)    # Example: UC between 0-100
 
-plt.figure(figsize=(10, 5))
 
-# FHR Signal
-plt.subplot(2, 1, 1)
-plt.plot(fhr_windows, label='FHR', color='blue')
-plt.title("Fetal Heart Rate (FHR)")
-plt.ylabel("BPM")
-plt.grid()
-plt.legend()
+def normalize_signal(signal):
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    return scaler.fit_transform(signal.reshape(-1, 1)).flatten()
 
-# UC Signal
-plt.subplot(2, 1, 2)
-plt.plot(uc_windows, label='Uterine Contractions (UC)', color='green')
-plt.title("Uterine Contractions (UC)")
-plt.ylabel("Intensity")
-plt.xlabel("Time (samples)")
-plt.grid()
-plt.legend()
 
-plt.tight_layout()
-plt.show()
+
+def preprocess_signals(fhr_signal, uc_signal, sampling_rate):
+    fhr_signal = handle_missing_values(fhr_signal)
+    uc_signal = handle_missing_values(uc_signal)
+
+    fhr_signal = low_pass_filter(fhr_signal, cutoff=0.5, fs=sampling_rate)
+    uc_signal = low_pass_filter(uc_signal, cutoff=0.5, fs=sampling_rate)
+
+    fhr_signal = clip_outliers(fhr_signal, lower_limit=60, upper_limit=200)
+    uc_signal = clip_outliers(uc_signal, lower_limit=0, upper_limit=100)
+
+    fhr_signal = normalize_signal(fhr_signal)
+    uc_signal = normalize_signal(uc_signal)
+
+    return fhr_signal, uc_signal
