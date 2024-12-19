@@ -2,10 +2,11 @@ from scipy.signal import butter, filtfilt, find_peaks, resample
 from sklearn.preprocessing import MinMaxScaler
 import pandas as pd
 import numpy as np
+import ExtractData
+import matplotlib.pyplot as plt
 
 # Load signals (FHR and UC)
-fhr_signal = np.array([...])  # Replace with actual data
-uc_signal = np.array([...])
+fhr_signal, uc_signal = ExtractData.extract_data()
 
 # Step 1: Interpolate missing values
 fhr_signal = pd.Series(fhr_signal).interpolate(method='linear').to_numpy()
@@ -39,3 +40,25 @@ window_size = 60
 overlap = 0.5
 fhr_windows = segment_signal(fhr_signal, window_size, overlap)
 uc_windows = segment_signal(uc_signal, window_size, overlap)
+
+plt.figure(figsize=(10, 5))
+
+# FHR Signal
+plt.subplot(2, 1, 1)
+plt.plot(fhr_windows, label='FHR', color='blue')
+plt.title("Fetal Heart Rate (FHR)")
+plt.ylabel("BPM")
+plt.grid()
+plt.legend()
+
+# UC Signal
+plt.subplot(2, 1, 2)
+plt.plot(uc_windows, label='Uterine Contractions (UC)', color='green')
+plt.title("Uterine Contractions (UC)")
+plt.ylabel("Intensity")
+plt.xlabel("Time (samples)")
+plt.grid()
+plt.legend()
+
+plt.tight_layout()
+plt.show()

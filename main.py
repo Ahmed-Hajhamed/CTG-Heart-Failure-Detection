@@ -1,14 +1,13 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QGridLayout, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QLineEdit, QTableWidgetItem,
-    QPushButton, QComboBox, QSlider, QFileDialog, QSpacerItem, QSizePolicy, QGraphicsScene, QCheckBox, QTabWidget
+    QApplication, QTableWidgetItem
 )
 from torch import mode
 from ui import ui
 import wfdb
 import numpy as np
 from scipy.signal import find_peaks
-
+from qt_material import apply_stylesheet
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
 
@@ -308,6 +307,7 @@ def model_creator():
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    apply_stylesheet(app, "dark_purple.xml")
     window = main()
     window.show()
     sys.exit(app.exec_())

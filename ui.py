@@ -1,13 +1,31 @@
 import sys
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QGridLayout, QWidget, QLabel, QVBoxLayout, QHBoxLayout, QFrame, QLineEdit, QTableWidget,
-    QPushButton, QComboBox, QSlider, QFileDialog, QSpacerItem, QSizePolicy, QTableWidgetItem, QCheckBox, QTabWidget
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+    QPushButton, QComboBox,
+    QHeaderView
 )
+from PyQt5.QtGui import QFont
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 import numpy as np
 import wfdb
-
+gray_style = {
+    'axes.facecolor': '2E2E2E',    # Dark gray background for axes
+    'figure.facecolor': '31363b',  # Dark gray background for the figure
+    'axes.edgecolor': 'white',      # White edges for axes
+    'axes.labelcolor': 'white',     # White labels
+    'xtick.color': 'white',         # White tick marks on x-axis
+    'ytick.color': 'white',         # White tick marks on y-axis
+    'text.color': 'white',          # White text
+    'grid.color': '#444444',        # Slightly lighter grid lines
+    'grid.linestyle': '--',         # Dashed grid lines
+    'lines.color': 'cyan',          # Default line color
+    'patch.edgecolor': 'white',     # Edge color for patches
+    'legend.facecolor': '#4C4C4C',  # Darker gray background for legends
+    'legend.edgecolor': 'white',    # White edges for legends
+}
+plt.style.use(gray_style)
 
 class Figure_CTG(FigureCanvas):
     def __init__(self, parent=None, width=10, height=5, dpi=100):
@@ -30,7 +48,11 @@ class ui(QMainWindow):
         self.v_main_layout.addWidget(self.figure_plot)
         
         self.info_table = QTableWidget()
-        self.info_table.setFixedHeight(60)
+        self.info_table.setFixedHeight(100)
+        font = QFont("Arial", 36)  # Font family and size
+        self.info_table.setFont(font)
+        self.info_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
         column_headers = [
             "FETAL STATE",
             "FHR baseline bpm",
@@ -70,7 +92,7 @@ class ui(QMainWindow):
         self.combo_box_of_files = QComboBox()
         self.combo_box_of_files.addItems([str(i) for i in range(1,507)])
         self.combo_box_of_files.setMaxVisibleItems(10)
-        self.combo_box_of_files.setStyleSheet("QComboBox { combobox-popup: 0; }");
+        self.combo_box_of_files.setStyleSheet("QComboBox { combobox-popup: 0; }")
         # dropdown_view = self.combo_box_of_files.view()
         # dropdown_view.setMinimumHeight(50)  # Minimum height for dropdown menu
         # dropdown_view.setFixedHeight(150)

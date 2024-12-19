@@ -3,7 +3,7 @@ import wfdb
 import matplotlib.pyplot as plt
 
 def extract_data():
-    record_name = 'cardiotocography-dataset/1001'
+    record_name = 'cardiotocography-dataset/1004'
     # Read the record
     record = wfdb.rdrecord(record_name)
 
