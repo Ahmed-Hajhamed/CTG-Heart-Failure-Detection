@@ -30,7 +30,7 @@ This application uses Cardiotocography (CTG) data to detect potential signs of h
 ### Steps
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-repo/CTG-Heart-Failure-Detection.git
+   https://github.com/Ahmed-Hajhamed/CTG-Heart-Failure-Detection
    ```
 2. Navigate to the project directory:
    ```bash
@@ -77,5 +77,5 @@ This project is licensed under the MIT License.
 - Contributors and community support for development and testing.
 
 ## Contact
-For questions or feedback, please email [your-email@example.com].
+For questions or feedback, please email ahmed.hajhamed03@eng-st.cu.edu.eg.
 
